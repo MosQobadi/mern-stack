@@ -1,12 +1,8 @@
 const mongoose = require("mongoose");
 const { ObjectId } = require("mongodb");
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
-
-// validate userID
-const validObjectIdRegex = /^[0-9a-fA-F]{24}$/;
 
 const app = express();
 app.use(cors());
@@ -15,9 +11,19 @@ app.use(express.json());
 const uri = "mongodb://0.0.0.0:27017";
 const client = new MongoClient(uri);
 
-app.get("/", (req, res) => {
-  res.send("Hello from the backend server!");
+// Validate userID
+const validObjectIdRegex = /^[0-9a-fA-F]{24}$/;
+
+// User model
+const userSchema = new mongoose.Schema({
+  username: String,
+  lastName: String,
+  email: String,
+  firstName: String,
+  password: String,
 });
+
+const User = mongoose.model("User", userSchema);
 
 app.get("/api/users", async (req, res) => {
   try {
@@ -96,6 +102,31 @@ app.delete("/api/users/:userId", async (req, res) => {
     res
       .status(500)
       .json({ error: "An error occurred while deleting the user." });
+  }
+});
+
+app.post("/api/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    await client.connect();
+    const database = client.db("panel");
+    const collection = database.collection("users");
+
+    const user = await collection.findOne({ username: username });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (user.password !== password) {
+      return res.status(401).json({ error: "Invalid password." });
+    }
+
+    res.json({ message: "Login successful.", user: user });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "An error occurred while logging in." });
   }
 });
 
